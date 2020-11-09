@@ -29,13 +29,16 @@ class ExtendedQuerySet(models.QuerySet):
         defaults = defaults or {}
         self._for_write = True
 
-        if django.VERSION < (2,2):
+        if django.VERSION < (2, 2):
             lookup, params = self._extract_model_params(defaults, **kwargs)
             with transaction.atomic(using=self.db):
                 try:
                     obj = self.select_for_update().get(**lookup)
                 except self.model.DoesNotExist:
-                    obj, created = self._create_object_from_params(lookup, params)
+                    obj, created = self._create_object_from_params(
+                        lookup,
+                        params
+                    )
                     if created:
                         return obj, created
                 for k, v in defaults.items():
@@ -50,7 +53,11 @@ class ExtendedQuerySet(models.QuerySet):
                 params = self._extract_model_params(defaults, **kwargs)
                 # Lock the row so that a concurrent update is blocked until
                 # after update_or_create() has performed its save.
-                obj, created = self._create_object_from_params(kwargs, params, lock=True)
+                obj, created = self._create_object_from_params(
+                    kwargs,
+                    params,
+                    lock=True
+                )
                 if created:
                     return obj, created
             for k, v in defaults.items():

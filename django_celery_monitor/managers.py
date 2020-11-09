@@ -8,7 +8,7 @@ from celery.utils.time import maybe_timedelta
 import django
 from django.db import models, router, transaction
 
-from .utils import Now
+from django.utils import timezone
 
 
 class ExtendedQuerySet(models.QuerySet):
@@ -72,7 +72,7 @@ class WorkerStateQuerySet(ExtendedQuerySet):
     def update_heartbeat(self, hostname, heartbeat, update_freq):
         with transaction.atomic():
             # check if there was an update in the last n seconds?
-            interval = Now() - timedelta(seconds=update_freq)
+            interval = timezone.now() - timedelta(seconds=update_freq)
             recent_worker_updates = self.filter(
                 hostname=hostname,
                 last_update__gte=interval,
@@ -100,7 +100,7 @@ class TaskStateQuerySet(ExtendedQuerySet):
         """Return all expired task states."""
         return self.filter(
             state__in=states,
-            tstamp__lte=Now() - maybe_timedelta(expires),
+            tstamp__lte=timezone.now() - maybe_timedelta(expires),
         )
 
     def expire_by_states(self, states, expires):

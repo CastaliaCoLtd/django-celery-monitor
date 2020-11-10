@@ -8,7 +8,7 @@ from celery.utils.time import maybe_timedelta
 import django
 from django.db import models, router, transaction
 
-from .utils import Now
+from django.utils import timezone
 
 
 class ExtendedQuerySet(models.QuerySet):
@@ -29,13 +29,16 @@ class ExtendedQuerySet(models.QuerySet):
         defaults = defaults or {}
         self._for_write = True
 
-        if django.VERSION < (2,2):
+        if django.VERSION < (2, 2):
             lookup, params = self._extract_model_params(defaults, **kwargs)
             with transaction.atomic(using=self.db):
                 try:
                     obj = self.select_for_update().get(**lookup)
                 except self.model.DoesNotExist:
-                    obj, created = self._create_object_from_params(lookup, params)
+                    obj, created = self._create_object_from_params(
+                        lookup,
+                        params
+                    )
                     if created:
                         return obj, created
                 for k, v in defaults.items():
@@ -50,7 +53,11 @@ class ExtendedQuerySet(models.QuerySet):
                 params = self._extract_model_params(defaults, **kwargs)
                 # Lock the row so that a concurrent update is blocked until
                 # after update_or_create() has performed its save.
-                obj, created = self._create_object_from_params(kwargs, params, lock=True)
+                obj, created = self._create_object_from_params(
+                    kwargs,
+                    params,
+                    lock=True
+                )
                 if created:
                     return obj, created
             for k, v in defaults.items():
@@ -65,7 +72,7 @@ class WorkerStateQuerySet(ExtendedQuerySet):
     def update_heartbeat(self, hostname, heartbeat, update_freq):
         with transaction.atomic():
             # check if there was an update in the last n seconds?
-            interval = Now() - timedelta(seconds=update_freq)
+            interval = timezone.now() - timedelta(seconds=update_freq)
             recent_worker_updates = self.filter(
                 hostname=hostname,
                 last_update__gte=interval,
@@ -93,7 +100,7 @@ class TaskStateQuerySet(ExtendedQuerySet):
         """Return all expired task states."""
         return self.filter(
             state__in=states,
-            tstamp__lte=Now() - maybe_timedelta(expires),
+            tstamp__lte=timezone.now() - maybe_timedelta(expires),
         )
 
     def expire_by_states(self, states, expires):
